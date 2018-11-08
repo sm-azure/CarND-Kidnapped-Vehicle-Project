@@ -19,6 +19,8 @@
 const double M_PI = 3.14159265358979323846;
 #endif
 
+using namespace std;
+
 /*
  * Struct representing one position/control measurement.
  */
@@ -55,6 +57,7 @@ struct LandmarkObs {
  * @output Euclidean distance between two 2D points
  */
 inline double dist(double x1, double y1, double x2, double y2) {
+	//cout << x1 << "," << y1 << " - " << x2 << "," << y2 << endl;
 	return sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
 }
 

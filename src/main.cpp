@@ -106,8 +106,8 @@ int main()
         	{
         		LandmarkObs obs;
         		obs.x = x_sense[i];
-				obs.y = y_sense[i];
-				noisy_observations.push_back(obs);
+			    	obs.y = y_sense[i];
+				    noisy_observations.push_back(obs);
         	}
 
 		  // Update the weights and resample
@@ -121,29 +121,29 @@ int main()
 		  Particle best_particle;
 		  double weight_sum = 0.0;
 		  for (int i = 0; i < num_particles; ++i) {
-			if (particles[i].weight > highest_weight) {
-				highest_weight = particles[i].weight;
-				best_particle = particles[i];
-			}
-			weight_sum += particles[i].weight;
-		  }
-		  cout << "highest w " << highest_weight << endl;
-		  cout << "average w " << weight_sum/num_particles << endl;
+        if (particles[i].weight > highest_weight) {
+          highest_weight = particles[i].weight;
+          best_particle = particles[i];
+        }
+        weight_sum += particles[i].weight;
+        }
+        cout << "highest w " << highest_weight << endl;
+        cout << "average w " << weight_sum/num_particles << endl;
 
-          json msgJson;
-          msgJson["best_particle_x"] = best_particle.x;
-          msgJson["best_particle_y"] = best_particle.y;
-          msgJson["best_particle_theta"] = best_particle.theta;
+        json msgJson;
+        msgJson["best_particle_x"] = best_particle.x;
+        msgJson["best_particle_y"] = best_particle.y;
+        msgJson["best_particle_theta"] = best_particle.theta;
 
-          //Optional message data used for debugging particle's sensing and associations
-          msgJson["best_particle_associations"] = pf.getAssociations(best_particle);
-          msgJson["best_particle_sense_x"] = pf.getSenseX(best_particle);
-          msgJson["best_particle_sense_y"] = pf.getSenseY(best_particle);
+        //Optional message data used for debugging particle's sensing and associations
+        msgJson["best_particle_associations"] = pf.getAssociations(best_particle);
+        msgJson["best_particle_sense_x"] = pf.getSenseX(best_particle);
+        msgJson["best_particle_sense_y"] = pf.getSenseY(best_particle);
 
-          auto msg = "42[\"best_particle\"," + msgJson.dump() + "]";
-          // std::cout << msg << std::endl;
-          ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
-	  
+        auto msg = "42[\"best_particle\"," + msgJson.dump() + "]";
+        // std::cout << msg << std::endl;
+        ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
+      
         }
       } else {
         std::string msg = "42[\"manual\",{}]";
