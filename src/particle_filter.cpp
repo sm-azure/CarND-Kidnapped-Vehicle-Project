@@ -27,15 +27,15 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	num_particles = 10;
 	default_random_engine gen;
 	
-	normal_distribution<double> dist_x(x, std[0]);
-	normal_distribution<double> dist_y(y, std[1]);
-	normal_distribution<double> dist_theta(theta, std[2]);
+	normal_distribution<double> dist_x(0, std[0]);
+	normal_distribution<double> dist_y(0, std[1]);
+	normal_distribution<double> dist_theta(0, std[2]);
 
 	for (int i=0;i<num_particles; i++){
 		double sample_x, sample_y, sample_theta;
-		sample_x = dist_x(gen);
-		sample_y = dist_y(gen);
-		sample_theta = dist_theta(gen);
+		sample_x = x + dist_x(gen);
+		sample_y = y + dist_y(gen);
+		sample_theta = theta + dist_theta(gen);
 		cout << sample_x << "," << sample_y << "," << sample_theta <<endl;
 		Particle particle = {
 			i,
@@ -59,7 +59,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	 * @param delta_t Time between time step t and t+1 in measurements [s]
 	 * @param std_pos[] Array of dimension 3 [standard deviation of x [m], standard deviation of y [m]
 	 *   standard deviation of yaw [rad]]
-	 * @param velocity Velocity of car from t to t+1 [m/s]
+	 * @param velocity Velocity  of car from t to t+1 [m/s]
 	 * @param yaw_rate Yaw rate of car from t to t+1 [rad/s]
 	 */
 void ParticleFilter::prediction(double delta_t, double std_pos[], double velocity, double yaw_rate) {
@@ -73,31 +73,46 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 	
 	for (int i=0;i<num_particles; i++){
 		Particle p = particles[i];		
-		cout << p.id << "," << p.x << "," << p.y << "," << p.theta <<endl;
+		cout << p.id << "," << p.x << "," << p.y << "," << p.theta << p.weight << endl;
+		//rest particle weight
+		particles[i].weight = 1.0;
 		//Calculate new positions
-		double new_x = p.x + velocity * (sin(p.theta + yaw_rate* delta_t)- sin(p.theta)) / yaw_rate;
-		double new_y = p.y + velocity * (cos(p.theta)- cos(p.theta + yaw_rate * delta_t)) / yaw_rate;
-		double new_theta = p.theta + yaw_rate * delta_t;
-
-		normal_distribution<double> dist_x(new_x, std_pos[0]);
-		normal_distribution<double> dist_y(new_y, std_pos[1]);
-		normal_distribution<double> dist_theta(new_theta, std_pos[2]);
-
-		double sample_x, sample_y, sample_theta;
-		sample_x = dist_x(gen);
-		sample_y = dist_y(gen);
-		sample_theta = dist_theta(gen);
-
-		if(isnan(sample_x) || isnan(sample_y)){
-			cout << "Nans in prediction" <<endl;
-			cout << "Yaw rate:" << yaw_rate <<endl;
-			cout << p.id << "," << p.x << "," << p.y << "," << p.theta <<endl;
-			cout << sample_x << "," << sample_y << "," << sample_theta <<endl;
+		double new_x = 0.0;
+		double new_y = 0.0;
+		double new_theta = 0.0;
+		if(fabs(yaw_rate) > .00001){
+			new_x = p.x + velocity * (sin(p.theta + yaw_rate* delta_t)- sin(p.theta)) / yaw_rate;
+			new_y = p.y + velocity * (cos(p.theta)- cos(p.theta + yaw_rate * delta_t)) / yaw_rate;
+			new_theta = p.theta + yaw_rate * delta_t;
+		}else{
+			new_x = p.x + velocity * delta_t * cos(p.theta);
+			new_y = p.y + velocity * delta_t * sin(p.theta);
+			new_theta = p.theta;
 		}
 
-		particles[i].x = sample_x;
-		particles[i].y = sample_y;
-		particles[i].theta = sample_theta;
+		// while (new_theta> M_PI) new_theta-=2.*M_PI;
+    	// while (new_theta<-M_PI) new_theta+=2.*M_PI;
+
+
+		// normal_distribution<double> dist_x(0, std_pos[0]);
+		// normal_distribution<double> dist_y(0, std_pos[1]);
+		// normal_distribution<double> dist_theta(0, std_pos[2]);
+
+		// double sample_x, sample_y, sample_theta;
+		// sample_x = new_x + dist_x(gen);
+		// sample_y = new_y + dist_y(gen);
+		// sample_theta = new_theta + dist_theta(gen);
+
+		// if(isnan(sample_x) || isnan(sample_y)){
+		// 	cout << "Nans in prediction" <<endl;
+		// 	cout << "Yaw rate:" << yaw_rate <<endl;
+		// 	cout << p.id << "," << p.x << "," << p.y << "," << p.theta <<endl;
+		// 	cout << sample_x << "," << sample_y << "," << sample_theta <<endl;
+		// }
+
+		particles[i].x = new_x;
+		particles[i].y = new_y;
+		particles[i].theta = new_theta;
 
 		p = particles[i];
 		//cout << p.id << "," << p.x << "," << p.y << "," << p.theta <<endl;
@@ -230,6 +245,8 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 		for(int j=0; j<observations_map.size(); j++){
 			//Find the nearest predicted neighbor
 			int closest = observations_map[j].id;
+
+			cout << "Obs number:" << j << " , " << "Nearest predicted" << closest << endl;
 			double p_x, p_y = 0.0;
 			for(int k=0;k<predictions.size();k++){
 				if(predictions[k].id == closest){
@@ -243,13 +260,21 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 			double x_c = pow ((observations_map[j].x- p_x), 2) / (2* std_landmark[0] * std_landmark[0]);
 			double y_c = pow ((observations_map[j].y-p_y), 2) / (2* std_landmark[1] * std_landmark[1]);
 			double prob = exp (- x_c - y_c) / (2 * M_PI * std_landmark[0] * std_landmark[1]);
-			//cout << "prob:" << prob << "::" << distance << endl;
+			if(prob == 0.0){
+				cout << "\tprob is zero:" << prob << "::" << distance << endl;
+				cout << "\t" << p_x << "," << p_y << "," << observations_map[j].x << "," << observations_map[j].y <<  endl;
+				cout << "\t" << x_c << ","<< y_c <<endl;
+				cout << "\tObservations" << endl;
+				for (int p=0;p< observations_map.size(); p++){
+					cout << "\t" << "\t" << observations_map[p].x << "," << observations_map[p].y << "->" << observations_map[p].id<<endl;
+				}
+			}
 			particle_prob *= prob;
 		}
 		cout << "Particle:" << i << "-->" << particle_prob << endl;
 		
 		weights[i] = particle_prob;
-		p.weight = particle_prob;
+		particles[i].weight = particle_prob;
 	}
 }
 
@@ -270,35 +295,61 @@ void ParticleFilter::resample() {
 		weight_sum+= weights[i];
 	}
 
+	cout << "Sum weight" << weight_sum << endl;
+
 	double max = std::numeric_limits<double>::min();
 	for (int i=0;i<weights.size(); i++){
-		weights[i] = weights[i]/weight_sum;
-		particles[i].weight = particles[i].weight/weight_sum;
+		double wd = weights[i];
+		double pd = particles[i].weight;
+		//weights[i] = weights[i]/weight_sum;
+		//particles[i].weight = particles[i].weight/weight_sum;
+
+		// if(isinf(weights[i]) || isinf(particles[i].weight)){
+		// 	cout << "IsINF-----------" << endl;
+		// 	cout << "wd:" << wd << " ," << "pd:" << pd <<endl;
+		// 	cout << "w sum:" << weight_sum << endl;
+		// 	std::exit(-1);
+		// }
+
 		if(max < weights[i]){
 			max = weights[i];
 		}
+		cout << "Particle (norm):" << i << "-->" << particles[i].weight << endl;
 	}
+	cout << "Max weight" << max << endl;
 
 	//New particle set 
 	std::vector<Particle> p3;
+	std::vector<double> w3;
 
 	std::random_device rd;
     std::mt19937 gen(rd());
+	std::random_device rd2;
+  	std::mt19937 gen2(rd2());
+	  
 	std::uniform_int_distribution<> dis(0, num_particles-1);
-	std::normal_distribution<> d{0, 2*max};
+	std::normal_distribution<> d{0.0, 2*max};
 	auto idx = dis(gen);
 	double beta = 0.0;
 
 	for (int i=0;i< num_particles; i++){
-		beta += d(gen);
+		beta += d(gen2);
 		while(weights[idx] < beta){
 			beta -= weights[idx];
 			idx = (idx +1)% num_particles;
 		}
+		// Particle pp;
+		// pp.x = particles[idx].x;
+		// pp.y = particles[idx].y;
+		// pp.theta = particles[idx].theta;
+		// pp.weight = particles[idx].weight;
+		// pp.id = particles[idx].id;
 		p3.push_back(particles[idx]);
+		w3.push_back(particles[idx].weight);
 	}
 
 	particles = p3;
+	weights = w3;
     
 }
 
